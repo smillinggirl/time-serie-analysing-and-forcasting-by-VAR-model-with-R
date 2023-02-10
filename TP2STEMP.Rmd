@@ -1,0 +1,151 @@
+---
+title: "TP2TEMP"
+author: "dakli"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+```{r}
+library(vars)
+library(mFilter)
+library(remotes)
+library(dplyr)
+library(urca)
+library(dynlm)
+library(lmtest)        
+library(readxl)
+library(tidyverse)
+library(stargazer)
+library(tseries)
+
+```
+
+
+
+```{r}
+library(vars)
+library(mFilter)
+```
+
+
+```{r}
+library(readr)
+sub<- read_csv("C:\\Users\\hp\\Documents\\ETRI\\AB_Submission12.csv")
+View(sub)
+```
+```{r}
+min(sub$Year)
+max(sub$Year)
+```
+
+```{r}
+gdl<- ts(sub$Trade, start = c(1965, 2), freq = 4) 
+unc <- ts(sub$Inflation, start = c(1965, 2), freq = 4)
+```
+```{r}
+plot(cbind(gdl, unc))
+```
+```{r}
+gdl.ac <- acf(gdl, main = "output")
+```
+```{r}
+unc.ac <- acf(unc, main = "unemployent")
+```
+```{r}
+adf.unc <- ur.df(unc, type = "trend", selectlags = "AIC")
+summary(adf.unc)
+```
+
+
+
+```{r}
+sub.bv <- cbind(gdl, unc) 
+colnames(sub.bv) <- c("gdl", "unc") 
+info.bv <- VARselect(sub.bv, lag.max = 12, type = "const") 
+info.bv$selection
+```
+
+```{r}
+bv.est <- VAR(sub.bv, p = 2, type = "const", season = NULL,
+              exog = NULL) 
+summary(bv.est)
+```
+
+
+
+```{r}
+bv.serial <- serial.test(bv.est, lags.pt = 12, type = "PT.asymptotic")
+bv.serial
+```
+```{r}
+plot(bv.serial, names = "gdl")
+```
+
+
+```{r}
+plot(bv.serial, names = "unc")
+```
+```{r}
+bv.arch <- arch.test(bv.est, lags.multi = 12, multivariate.only = TRUE)
+bv.arch
+```
+
+
+
+
+```{r}
+bv.norm <- normality.test(bv.est, multivariate.only = TRUE) 
+bv.norm
+```
+```{r}
+bv.cusum <- stability(bv.est, type = "OLS-CUSUM") 
+plot(bv.cusum)
+```
+Granger causality, IRFs and variance decompositions
+```{r}
+bv.cause.gdl <- causality(bv.est, cause = "gdl") 
+bv.cause.gdl
+```
+```{r}
+bv.cause.unc <- causality(bv.est, cause = "unc")
+bv.cause.unc
+```
+```{r}
+irf.gdl <- irf(bv.est, impulse = "unc", response = "gdl",
+               n.ahead = 40, boot = TRUE)
+plot(irf.gdl, ylab = "ouput", main = "Shock from unemployment")
+```
+```{r}
+irf.unc <- irf(bv.est, impulse = "gdl", response = "unc", 
+               n.ahead = 40, boot = TRUE) 
+plot(irf.unc, ylab = "unemployment", main = "Shock from output")
+```
+```{r}
+irf.unc_un <- irf(bv.est, impulse = "unc", response = "unc",
+                  n.ahead = 40, boot = TRUE) 
+plot(irf.unc_un, ylab = "unemployment", main = "Shock from unemployment")
+```
+
+
+
+
+```{r}
+bv.vardec <- fevd(bv.est, n.ahead = 10) 
+plot(bv.vardec)
+```
+Forecasting
+```{r}
+predictions <- predict(bv.est, n.ahead = 8, ci = 0.95) 
+plot(predictions, names = "gdl") 
+```
+```{r}
+plot(predictions, names = "unc")
+```
+```{r}
+fanchart(predictions, names = "gdl")
+```
+```{r}
+fanchart(predictions, names = "unc")
+```
+
